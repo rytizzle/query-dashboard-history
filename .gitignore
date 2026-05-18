@@ -1,0 +1,9 @@
+.databricks/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.tfstate
+*.tfstate.*
+dev/state/
+prod/state/
