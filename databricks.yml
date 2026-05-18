@@ -1,58 +1,44 @@
 bundle:
-  name: lakeview-dashboard-history-dlt
+  name: workspace-inventory
 
 variables:
   catalog:
-    default: main
+    default: ryant_catalog
   schema:
-    default: lakeview_dashboard_history
-  audit_window_days:
-    default: "30"
-  source_page_size:
-    default: "1000"
-  source_host:
-    default: ""
-  source_token:
-    default: ""
-  source_profile:
-    default: ""
-  source_auth_type:
-    default: ""
-  source_mint_ephemeral_token:
-    default: "true"
-  source_ephemeral_token_lifetime_seconds:
-    default: "3600"
+    default: system_tables
   source_dashboard_limit:
     default: "0"
-  source_parallelism:
-    default: "32"
-  source_per_partition_threads:
-    default: "2"
-  source_output_batch_size:
-    default: "128"
-  source_progress_log_interval:
-    default: "1000"
-  source_include_serialized_dashboard:
-    default: "true"
-  source_use_driver_auth:
-    default: "true"
+  source_genie_limit:
+    default: "0"
+  source_warehouse_limit:
+    default: "0"
 
 targets:
   dev:
     mode: development
     default: true
+    variables:
+      schema: system_tables_dev
+      source_dashboard_limit: "200"
+      source_genie_limit: "200"
+      source_warehouse_limit: "200"
     resources:
       pipelines:
-        lakeview_dashboard_history:
+        workspace_inventory:
           development: true
 
   prod:
     mode: production
+    variables:
+      schema: system_tables
+      source_dashboard_limit: "0"
+      source_genie_limit: "0"
+      source_warehouse_limit: "0"
 
 resources:
   pipelines:
-    lakeview_dashboard_history:
-      name: "lakeview_dashboard_history_${bundle.target}"
+    workspace_inventory:
+      name: "workspace_inventory_${bundle.target}"
       catalog: ${var.catalog}
       target: ${var.schema}
       development: false
@@ -61,26 +47,34 @@ resources:
       serverless: true
       libraries:
         - file:
-            path: ./lakeview_dashboard_history_pipeline.py
+            path: ./workspace_inventory_pipeline.py
         - file:
             path: ./dashboard_snapshot_source.py
+        - file:
+            path: ./genie_space_snapshot_source.py
+        - file:
+            path: ./warehouse_snapshot_source.py
       environment:
         dependencies:
-          - "databricks-sdk==0.102.0"
+          - "databricks-sdk>=0.102.0"
           - "pyarrow>=15.0.0"
       configuration:
-        "lakeview.audit_window_days": ${var.audit_window_days}
-        "lakeview.source.host": ${var.source_host}
-        "lakeview.source.token": ${var.source_token}
-        "lakeview.source.profile": ${var.source_profile}
-        "lakeview.source.auth_type": ${var.source_auth_type}
-        "lakeview.source.mint_ephemeral_token": ${var.source_mint_ephemeral_token}
-        "lakeview.source.ephemeral_token_lifetime_seconds": ${var.source_ephemeral_token_lifetime_seconds}
-        "lakeview.source.page_size": ${var.source_page_size}
-        "lakeview.source.dashboard_limit": ${var.source_dashboard_limit}
-        "lakeview.source.parallelism": ${var.source_parallelism}
-        "lakeview.source.per_partition_threads": ${var.source_per_partition_threads}
-        "lakeview.source.output_batch_size": ${var.source_output_batch_size}
-        "lakeview.source.progress_log_interval": ${var.source_progress_log_interval}
-        "lakeview.source.include_serialized_dashboard": ${var.source_include_serialized_dashboard}
-        "lakeview.source.use_driver_auth": ${var.source_use_driver_auth}
+        "source.host": ""
+        "source.token": ""
+        "source.profile": ""
+        "source.auth_type": ""
+        "source.mint_ephemeral_token": "true"
+        "source.ephemeral_token_lifetime_seconds": "3600"
+        "source.use_driver_auth": "true"
+        "dashboard.source.page_size": "1000"
+        "dashboard.source.dashboard_limit": ${var.source_dashboard_limit}
+        "dashboard.source.parallelism": "32"
+        "dashboard.source.per_partition_threads": "2"
+        "dashboard.source.output_batch_size": "128"
+        "dashboard.source.include_serialized_dashboard": "true"
+        "dashboard.audit_window_days": "30"
+        "genie.source.space_limit": ${var.source_genie_limit}
+        "genie.source.parallelism": "4"
+        "genie.source.output_batch_size": "64"
+        "warehouse.source.warehouse_limit": ${var.source_warehouse_limit}
+        "warehouse.source.output_batch_size": "64"

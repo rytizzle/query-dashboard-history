@@ -351,20 +351,44 @@ class LakeviewDashboardSnapshotReader(DataSourceReader):
         else:
             client = _build_workspace_client(self.options)
             dashboard_ids = []
-            for dashboard in client.lakeview.list(
-                page_size=page_size,
-                show_trashed=False,
-                view=DashboardView.DASHBOARD_VIEW_BASIC,
-            ):
-                raw = dashboard.as_dict() if hasattr(dashboard, "as_dict") else vars(dashboard)
-                dashboard_id = raw.get("dashboard_id")
-                if dashboard_id:
-                    dashboard_ids.append(str(dashboard_id))
-                    if len(dashboard_ids) % progress_interval == 0:
-                        _progress_log(f"listed dashboard ids; count={len(dashboard_ids)}")
+            page_token = None
+            page_count = 0
+            failed_page_count = 0
+            while True:
+                query: dict[str, Any] = {
+                    "page_size": page_size,
+                    "show_trashed": "false",
+                    "view": "DASHBOARD_VIEW_BASIC",
+                }
+                if page_token:
+                    query["page_token"] = page_token
+                try:
+                    response = client.api_client.do("GET", "/api/2.0/lakeview/dashboards", query=query)
+                except Exception as err:
+                    failed_page_count += 1
+                    _progress_log(
+                        f"lakeview list page failed; page_count={page_count} failed_page_count={failed_page_count} error={err}"
+                    )
+                    if failed_page_count >= 3 or not page_token:
+                        _progress_log("aborting lakeview list pagination after repeated failures")
+                        break
+                    continue
+
+                page_count += 1
+                for dashboard in response.get("dashboards", []) or []:
+                    dashboard_id = dashboard.get("dashboard_id")
+                    if dashboard_id:
+                        dashboard_ids.append(str(dashboard_id))
+                if len(dashboard_ids) % progress_interval < page_size:
+                    _progress_log(f"listed dashboard ids; count={len(dashboard_ids)} pages={page_count}")
+                page_token = response.get("next_page_token")
+                if not page_token:
+                    break
 
             dashboard_ids = sorted(set(dashboard_ids))
-            _progress_log(f"completed dashboard id listing; unique_count={len(dashboard_ids)}")
+            _progress_log(
+                f"completed dashboard id listing; unique_count={len(dashboard_ids)} pages={page_count} failed_pages={failed_page_count}"
+            )
             dashboard_limit = _parse_int(self.options.get("dashboard_limit"), default=0, minimum=0)
             if dashboard_limit:
                 dashboard_ids = dashboard_ids[:dashboard_limit]
