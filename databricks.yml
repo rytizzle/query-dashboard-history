@@ -78,3 +78,6 @@ resources:
         "genie.source.output_batch_size": "64"
         "warehouse.source.warehouse_limit": ${var.source_warehouse_limit}
         "warehouse.source.output_batch_size": "64"
+        # Query-level cost attribution
+        "cost.window_days": "30"
+        "cost.discount_pct": "0"

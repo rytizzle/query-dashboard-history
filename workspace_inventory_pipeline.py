@@ -418,3 +418,216 @@ def warehouse_current():
         .where(F.col("__END_AT").isNull())
         .drop("__START_AT", "__END_AT")
     )
+
+
+# =====================================================================
+# QUERY-LEVEL COST ATTRIBUTION
+# =====================================================================
+# Implements the algorithm from "Granular Cost Monitoring for Databricks SQL":
+#   - Bucket warehouse spend by hour (matches system.billing.usage grain).
+#   - Per-statement work_ms = compilation + execution + result fetch.
+#   - Split each statement's work_ms across the hourly buckets it spans,
+#     proportional to the wall-clock overlap with each hour.
+#   - Per hour, attribute warehouse cost across statements by share of work_ms.
+# Sources: system.billing.usage, system.billing.list_prices, system.query.history.
+QUERY_COST_TABLE = "query_cost_attribution"
+DASHBOARD_COST_TABLE = "lakeview_dashboard_cost_l30d"
+GENIE_COST_TABLE = "genie_space_cost_l30d"
+WAREHOUSE_COST_TABLE = "warehouse_cost_l30d"
+
+
+@dp.materialized_view(
+    name=QUERY_COST_TABLE,
+    comment="Per-statement attributed cost using hourly warehouse spend proration.",
+)
+def query_cost_attribution():
+    window_days = int(spark.conf.get("cost.window_days", "30"))
+    discount_pct = float(spark.conf.get("cost.discount_pct", "0"))
+    discount_factor = max(0.0, 1.0 - discount_pct / 100.0)
+    return spark.sql(
+        f"""
+        WITH warehouse_hourly_cost AS (
+          SELECT
+            u.workspace_id,
+            u.usage_metadata.warehouse_id AS warehouse_id,
+            date_trunc('HOUR', u.usage_start_time) AS hour_start,
+            SUM(u.usage_quantity) AS dbus,
+            SUM(u.usage_quantity * coalesce(lp.pricing.default, 0)) * {discount_factor} AS list_cost_usd
+          FROM system.billing.usage u
+          LEFT JOIN system.billing.list_prices lp
+            ON u.cloud = lp.cloud
+           AND u.sku_name = lp.sku_name
+           AND u.usage_start_time >= lp.price_start_time
+           AND (lp.price_end_time IS NULL OR u.usage_start_time < lp.price_end_time)
+          WHERE u.billing_origin_product = 'SQL'
+            AND u.usage_metadata.warehouse_id IS NOT NULL
+            AND u.usage_start_time >= current_timestamp() - INTERVAL {window_days} DAYS
+          GROUP BY 1, 2, 3
+        ),
+        statements AS (
+          SELECT
+            qh.statement_id,
+            qh.workspace_id,
+            qh.executed_by,
+            qh.compute.warehouse_id AS warehouse_id,
+            qh.query_source.dashboard_id AS dashboard_id,
+            qh.query_source.genie_space_id AS genie_space_id,
+            qh.query_source.notebook_id AS notebook_id,
+            qh.query_source.alert_id AS alert_id,
+            qh.query_source.job_info.job_id AS job_id,
+            qh.client_application,
+            qh.start_time,
+            qh.end_time,
+            coalesce(qh.compilation_duration_ms, 0)
+              + coalesce(qh.execution_duration_ms, 0)
+              + coalesce(qh.result_fetch_duration_ms, 0) AS work_ms
+          FROM system.query.history qh
+          WHERE qh.compute.warehouse_id IS NOT NULL
+            AND qh.start_time >= current_timestamp() - INTERVAL {window_days} DAYS
+            AND qh.execution_status = 'FINISHED'
+            AND qh.end_time IS NOT NULL
+        ),
+        statement_hour_grain AS (
+          SELECT
+            s.*,
+            hour_start
+          FROM statements s
+          LATERAL VIEW explode(
+            sequence(
+              date_trunc('HOUR', s.start_time),
+              date_trunc('HOUR', s.end_time),
+              INTERVAL 1 HOUR
+            )
+          ) h AS hour_start
+        ),
+        statement_hour_work AS (
+          SELECT
+            statement_id, workspace_id, executed_by, warehouse_id,
+            dashboard_id, genie_space_id, notebook_id, alert_id, job_id,
+            client_application, start_time, end_time, work_ms, hour_start,
+            CASE
+              WHEN unix_timestamp(end_time) - unix_timestamp(start_time) <= 0 THEN work_ms
+              ELSE work_ms *
+                (unix_timestamp(least(end_time, hour_start + INTERVAL 1 HOUR))
+                 - unix_timestamp(greatest(start_time, hour_start)))
+                / (unix_timestamp(end_time) - unix_timestamp(start_time))
+            END AS work_ms_in_hour
+          FROM statement_hour_grain
+        ),
+        hour_total_work AS (
+          SELECT
+            workspace_id, warehouse_id, hour_start,
+            SUM(work_ms_in_hour) AS total_work_ms_in_hour
+          FROM statement_hour_work
+          GROUP BY 1, 2, 3
+        ),
+        attributed_hour AS (
+          SELECT
+            s.statement_id, s.workspace_id, s.executed_by, s.warehouse_id,
+            s.dashboard_id, s.genie_space_id, s.notebook_id, s.alert_id, s.job_id,
+            s.client_application, s.start_time, s.end_time, s.work_ms, s.hour_start,
+            s.work_ms_in_hour,
+            try_divide(s.work_ms_in_hour, h.total_work_ms_in_hour) * coalesce(w.list_cost_usd, 0) AS cost_usd_in_hour,
+            try_divide(s.work_ms_in_hour, h.total_work_ms_in_hour) * coalesce(w.dbus, 0) AS dbus_in_hour
+          FROM statement_hour_work s
+          LEFT JOIN hour_total_work h
+            ON s.workspace_id = h.workspace_id
+           AND s.warehouse_id = h.warehouse_id
+           AND s.hour_start    = h.hour_start
+          LEFT JOIN warehouse_hourly_cost w
+            ON s.workspace_id = w.workspace_id
+           AND s.warehouse_id = w.warehouse_id
+           AND s.hour_start    = w.hour_start
+        )
+        SELECT
+          statement_id, workspace_id, executed_by, warehouse_id,
+          dashboard_id, genie_space_id, notebook_id, alert_id, job_id,
+          client_application,
+          min(start_time) AS start_time,
+          max(end_time)   AS end_time,
+          max(work_ms)    AS work_ms,
+          SUM(cost_usd_in_hour) AS attributed_cost_usd,
+          SUM(dbus_in_hour)     AS attributed_dbus
+        FROM attributed_hour
+        GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        """
+    )
+
+
+@dp.materialized_view(
+    name=DASHBOARD_COST_TABLE,
+    comment="Per-dashboard attributed cost rollup over the cost window.",
+)
+def lakeview_dashboard_cost_l30d():
+    return spark.sql(
+        f"""
+        SELECT
+          dash.dashboard_id,
+          dash.display_name AS dashboard_name,
+          dash.owner,
+          dash.warehouse_id AS configured_warehouse_id,
+          count(qc.statement_id)                        AS statements,
+          coalesce(sum(qc.attributed_cost_usd), 0)      AS cost_usd,
+          coalesce(sum(qc.attributed_dbus), 0)          AS dbus,
+          coalesce(avg(qc.attributed_cost_usd), 0)      AS avg_cost_per_statement_usd,
+          max(qc.end_time)                              AS last_statement_at
+        FROM {DASHBOARD_CURRENT_TABLE} dash
+        LEFT JOIN {QUERY_COST_TABLE} qc
+          ON qc.dashboard_id = dash.dashboard_id
+        GROUP BY 1, 2, 3, 4
+        """
+    )
+
+
+@dp.materialized_view(
+    name=GENIE_COST_TABLE,
+    comment="Per-Genie-space attributed cost rollup over the cost window.",
+)
+def genie_space_cost_l30d():
+    return spark.sql(
+        f"""
+        SELECT
+          g.space_id,
+          g.title AS genie_space_title,
+          g.warehouse_id AS configured_warehouse_id,
+          g.creator_id,
+          count(qc.statement_id)                        AS statements,
+          coalesce(sum(qc.attributed_cost_usd), 0)      AS cost_usd,
+          coalesce(sum(qc.attributed_dbus), 0)          AS dbus,
+          coalesce(avg(qc.attributed_cost_usd), 0)      AS avg_cost_per_statement_usd,
+          count(DISTINCT qc.executed_by)                AS unique_users,
+          max(qc.end_time)                              AS last_statement_at
+        FROM {GENIE_CURRENT_TABLE} g
+        LEFT JOIN {QUERY_COST_TABLE} qc
+          ON qc.genie_space_id = g.space_id
+        GROUP BY 1, 2, 3, 4
+        """
+    )
+
+
+@dp.materialized_view(
+    name=WAREHOUSE_COST_TABLE,
+    comment="Per-warehouse attributed cost rollup over the cost window.",
+)
+def warehouse_cost_l30d():
+    return spark.sql(
+        f"""
+        SELECT
+          w.id AS warehouse_id,
+          w.name AS warehouse_name,
+          w.cluster_size,
+          w.warehouse_type,
+          w.enable_serverless_compute,
+          count(qc.statement_id)                        AS statements,
+          coalesce(sum(qc.attributed_cost_usd), 0)      AS cost_usd,
+          coalesce(sum(qc.attributed_dbus), 0)          AS dbus,
+          count(DISTINCT qc.executed_by)                AS unique_users,
+          count(DISTINCT qc.dashboard_id)               AS dashboards_touched,
+          count(DISTINCT qc.genie_space_id)             AS genie_spaces_touched,
+          max(qc.end_time)                              AS last_statement_at
+        FROM {WAREHOUSE_CURRENT_TABLE} w
+        LEFT JOIN {QUERY_COST_TABLE} qc
+          ON qc.warehouse_id = w.id
+        GROUP BY 1, 2, 3, 4, 5
+        """
+    )

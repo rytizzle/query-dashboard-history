@@ -370,6 +370,48 @@
       {
         "identifier": "ryant_catalog.system_tables.warehouse_current",
         "column_configs": []
+      },
+      {
+        "identifier": "system.billing.usage",
+        "column_configs": [],
+        "description": [
+          "DBU usage records by workspace/warehouse/SKU. Join to list_prices for $."
+        ]
+      },
+      {
+        "identifier": "system.billing.list_prices",
+        "column_configs": [],
+        "description": [
+          "Effective list prices per SKU. Use pricing.default for $/DBU."
+        ]
+      },
+      {
+        "identifier": "ryant_catalog.system_tables.query_cost_attribution",
+        "column_configs": [],
+        "description": [
+          "Per-statement attributed warehouse cost. Has dashboard_id, genie_space_id, warehouse_id, attributed_cost_usd, attributed_dbus. Use this for cost-per-query/cost-per-object questions."
+        ]
+      },
+      {
+        "identifier": "ryant_catalog.system_tables.lakeview_dashboard_cost_l30d",
+        "column_configs": [],
+        "description": [
+          "Per-dashboard 30-day cost rollup. dashboard_name, owner, statements, cost_usd, dbus."
+        ]
+      },
+      {
+        "identifier": "ryant_catalog.system_tables.genie_space_cost_l30d",
+        "column_configs": [],
+        "description": [
+          "Per-Genie-space 30-day cost rollup. genie_space_title, statements, cost_usd, dbus, unique_users."
+        ]
+      },
+      {
+        "identifier": "ryant_catalog.system_tables.warehouse_cost_l30d",
+        "column_configs": [],
+        "description": [
+          "Per-warehouse 30-day cost rollup. warehouse_name, cluster_size, statements, cost_usd, dbus."
+        ]
       }
     ]
   },
@@ -418,6 +460,12 @@
           "  Key columns: name (warehouse name), state, warehouse_type, cluster_size, min_num_clusters, max_num_clusters, auto_stop_mins, enable_serverless_compute, creator_name\n",
           "\n",
           "Always join these tables when users ask about dashboards, Genie spaces, or warehouses BY NAME instead of showing raw IDs.\n"
+        ]
+      },
+      {
+        "id": "02cb54da911d44b89a0440a8c3d9d51a",
+        "content": [
+          "=== COST ATTRIBUTION ===\nFor cost questions, prefer the pre-built rollup tables:\n  - 'how much did dashboard X cost' -> lakeview_dashboard_cost_l30d\n  - 'how much did genie space X cost' -> genie_space_cost_l30d\n  - 'cost per statement / cost per user' -> query_cost_attribution\n  - 'cost per warehouse' -> warehouse_cost_l30d\nThe cost columns are USD list-price ($) and DBU. Window is the last 30 days.\nIf the user asks for raw billing, use system.billing.usage joined with system.billing.list_prices on cloud + sku_name with the usage_start_time falling between price_start_time and price_end_time. Cost = usage_quantity * pricing.default."
         ]
       }
     ],
@@ -981,6 +1029,146 @@
               "  AND coalesce(d.views.published_users_l30d, 0) <= 2\n",
               "ORDER BY d.total_task_duration_l30d DESC\n",
               "LIMIT 20\n"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "86135b73d78a4e29a1077e6e38b0fb32",
+        "question": [
+          "Which 10 dashboards cost the most in the last 30 days?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT dashboard_name, owner, statements, ROUND(cost_usd, 2) AS cost_usd FROM ryant_catalog.system_tables.lakeview_dashboard_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "4766bf3e20ec488cb196dc0f2f96b8b6",
+        "question": [
+          "Which 10 Genie spaces cost the most in the last 30 days?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT genie_space_title, statements, ROUND(cost_usd, 2) AS cost_usd, unique_users FROM ryant_catalog.system_tables.genie_space_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "10b6a60e90bd4418b9c8ee18256b199f",
+        "question": [
+          "How much did the dashboard called 'Sales Overview' cost in the last 30 days?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT dashboard_name, owner, statements, ROUND(cost_usd, 2) AS cost_usd, ROUND(dbus, 4) AS dbus FROM ryant_catalog.system_tables.lakeview_dashboard_cost_l30d WHERE dashboard_name ILIKE '%Sales Overview%'\n"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "81d036b4052944689e5575f09f87a78f",
+        "question": [
+          "What is the total dashboard-driven cost in the last 30 days?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT ROUND(SUM(cost_usd), 2) AS total_dashboard_cost_usd, SUM(statements) AS total_statements FROM ryant_catalog.system_tables.lakeview_dashboard_cost_l30d\n"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "8afb87aa30804bc0986f114e1bcc23a0",
+        "question": [
+          "What is the total Genie-driven cost in the last 30 days?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT ROUND(SUM(cost_usd), 2) AS total_genie_cost_usd, SUM(statements) AS total_statements FROM ryant_catalog.system_tables.genie_space_cost_l30d\n"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "9a9a7d38da984fc58e3ac8fffc1e49eb",
+        "question": [
+          "Which user runs the most expensive queries? Show top 10."
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT executed_by, COUNT(*) AS statements, ROUND(SUM(attributed_cost_usd), 2) AS cost_usd FROM ryant_catalog.system_tables.query_cost_attribution GROUP BY executed_by ORDER BY cost_usd DESC LIMIT 10\n"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "36206c04fd4f4d89b75aa1bf0fdf6f61",
+        "question": [
+          "Show daily cost trend over the last 30 days, broken out by source type (dashboard, genie, notebook, other)."
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT date_trunc('DAY', start_time) AS day, CASE WHEN dashboard_id IS NOT NULL THEN 'dashboard' WHEN genie_space_id IS NOT NULL THEN 'genie_space' WHEN notebook_id IS NOT NULL THEN 'notebook' WHEN job_id IS NOT NULL THEN 'job' ELSE 'other' END AS source_type, ROUND(SUM(attributed_cost_usd), 2) AS cost_usd FROM ryant_catalog.system_tables.query_cost_attribution GROUP BY 1, 2 ORDER BY 1, 2\n"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "1e96a90a9de74ec49374fc26c72dff81",
+        "question": [
+          "Which warehouse drives the most cost?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT warehouse_name, cluster_size, statements, ROUND(cost_usd, 2) AS cost_usd, dashboards_touched, genie_spaces_touched FROM ryant_catalog.system_tables.warehouse_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "082e1bbb8fee4773b6bf094b6afdb894",
+        "question": [
+          "What is the average cost per statement for each dashboard?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT dashboard_name, statements, ROUND(avg_cost_per_statement_usd, 4) AS avg_cost_per_statement_usd, ROUND(cost_usd, 2) AS total_cost_usd FROM ryant_catalog.system_tables.lakeview_dashboard_cost_l30d WHERE statements > 0 ORDER BY avg_cost_per_statement_usd DESC LIMIT 20\n"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "b72a4c4c869c439db6a3b78e5c34b204",
+        "question": [
+          "Which Genie spaces are used by the most distinct people, and what is the cost?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT genie_space_title, unique_users, statements, ROUND(cost_usd, 2) AS cost_usd FROM ryant_catalog.system_tables.genie_space_cost_l30d ORDER BY unique_users DESC LIMIT 10\n"
             ]
           }
         ]
