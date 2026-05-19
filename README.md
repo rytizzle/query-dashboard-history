@@ -12,7 +12,7 @@ One Lakeflow Declarative Pipeline (`workspace_inventory`) that produces the foll
 | Genie spaces | `genie_space_history` | `genie_space_current` | — |
 | SQL warehouses | `warehouse_history` | `warehouse_current` | — |
 
-Plus four cost-attribution materialized views built from `system.billing.usage`, `system.billing.list_prices`, and `system.query.history`:
+Plus four cost-attribution materialized views built from `system.billing.usage`, `system.billing.account_prices` (with fallback to `system.billing.list_prices`), and `system.query.history`:
 
 | Table | Grain | Purpose |
 |---|---|---|
@@ -38,7 +38,7 @@ Config knobs (in `databricks.yml`):
 - `cost.window_days` — attribution lookback in days (default `30`)
 - `cost.discount_pct` — flat discount applied to list price (default `0`; e.g. `35` for 35% off)
 
-The customer can plug in their effective $/DBU later; today we use `system.billing.list_prices.pricing.default` with the optional flat discount.
+**Pricing source:** the MV prefers `system.billing.account_prices` (the customer's contracted rate) and falls back to `system.billing.list_prices` (public catalog rate) only for SKU/price-window rows the account table doesn't cover. Many demo / internal accounts have an empty `account_prices` — list_prices then carries the load. `cost.discount_pct` is an optional flat percentage applied on top (use it if your contract gives a flat discount that isn't reflected in `account_prices`).
 
 ## Repo layout
 

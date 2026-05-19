@@ -382,7 +382,7 @@
         "identifier": "system.billing.list_prices",
         "column_configs": [],
         "description": [
-          "Effective list prices per SKU. Use pricing.default for $/DBU."
+          "Public list prices per SKU. Used as a fallback when account_prices does not have a row for the (cloud, sku, price_start_time)."
         ]
       },
       {
@@ -411,6 +411,13 @@
         "column_configs": [],
         "description": [
           "Per-warehouse 30-day cost rollup. warehouse_name, cluster_size, statements, cost_usd, dbus."
+        ]
+      },
+      {
+        "identifier": "system.billing.account_prices",
+        "column_configs": [],
+        "description": [
+          "Account-specific contracted prices per SKU. Prefer over list_prices when populated; falls back to list_prices when empty."
         ]
       }
     ]
@@ -465,7 +472,7 @@
       {
         "id": "02cb54da911d44b89a0440a8c3d9d51a",
         "content": [
-          "=== COST ATTRIBUTION ===\nFor cost questions, prefer the pre-built rollup tables:\n  - 'how much did dashboard X cost' -> lakeview_dashboard_cost_l30d\n  - 'how much did genie space X cost' -> genie_space_cost_l30d\n  - 'cost per statement / cost per user' -> query_cost_attribution\n  - 'cost per warehouse' -> warehouse_cost_l30d\nThe cost columns are USD list-price ($) and DBU. Window is the last 30 days.\nIf the user asks for raw billing, use system.billing.usage joined with system.billing.list_prices on cloud + sku_name with the usage_start_time falling between price_start_time and price_end_time. Cost = usage_quantity * pricing.default."
+          "=== COST ATTRIBUTION ===\nFor cost questions, prefer the pre-built rollup tables:\n  - 'how much did dashboard X cost' -> lakeview_dashboard_cost_l30d\n  - 'how much did genie space X cost' -> genie_space_cost_l30d\n  - 'cost per statement / cost per user' -> query_cost_attribution\n  - 'cost per warehouse' -> warehouse_cost_l30d\nThe cost columns are USD ($) and DBU. Window is the last 30 days.\nIf the user asks for raw billing, join system.billing.usage to system.billing.account_prices (account's contracted rate) with fallback to system.billing.list_prices (public catalog rate) on cloud + sku_name where usage_start_time falls between price_start_time and price_end_time. Cost = usage_quantity * pricing.default."
         ]
       }
     ],

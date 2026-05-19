@@ -446,19 +446,36 @@ def query_cost_attribution():
     discount_factor = max(0.0, 1.0 - discount_pct / 100.0)
     return spark.sql(
         f"""
-        WITH warehouse_hourly_cost AS (
+        WITH effective_prices AS (
+          -- Prefer account-specific contracted pricing (system.billing.account_prices).
+          -- Fall back to public list_prices only for (cloud, sku, price_start_time)
+          -- rows that have no account_prices override. Empty account_prices in some
+          -- demo accounts is normal — list_prices then carries the load.
+          SELECT cloud, sku_name, price_start_time, price_end_time, pricing.default AS price_usd
+          FROM system.billing.account_prices
+          UNION ALL
+          SELECT cloud, sku_name, price_start_time, price_end_time, pricing.default AS price_usd
+          FROM system.billing.list_prices lp
+          WHERE NOT EXISTS (
+            SELECT 1 FROM system.billing.account_prices ap
+            WHERE ap.cloud = lp.cloud
+              AND ap.sku_name = lp.sku_name
+              AND ap.price_start_time = lp.price_start_time
+          )
+        ),
+        warehouse_hourly_cost AS (
           SELECT
             u.workspace_id,
             u.usage_metadata.warehouse_id AS warehouse_id,
             date_trunc('HOUR', u.usage_start_time) AS hour_start,
             SUM(u.usage_quantity) AS dbus,
-            SUM(u.usage_quantity * coalesce(lp.pricing.default, 0)) * {discount_factor} AS list_cost_usd
+            SUM(u.usage_quantity * coalesce(ep.price_usd, 0)) * {discount_factor} AS list_cost_usd
           FROM system.billing.usage u
-          LEFT JOIN system.billing.list_prices lp
-            ON u.cloud = lp.cloud
-           AND u.sku_name = lp.sku_name
-           AND u.usage_start_time >= lp.price_start_time
-           AND (lp.price_end_time IS NULL OR u.usage_start_time < lp.price_end_time)
+          LEFT JOIN effective_prices ep
+            ON u.cloud = ep.cloud
+           AND u.sku_name = ep.sku_name
+           AND u.usage_start_time >= ep.price_start_time
+           AND (ep.price_end_time IS NULL OR u.usage_start_time < ep.price_end_time)
           WHERE u.billing_origin_product = 'SQL'
             AND u.usage_metadata.warehouse_id IS NOT NULL
             AND u.usage_start_time >= current_timestamp() - INTERVAL {window_days} DAYS

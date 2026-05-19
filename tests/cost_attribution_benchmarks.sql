@@ -28,9 +28,19 @@ WITH mv_total AS (
   FROM query_cost_attribution
 ),
 raw_total AS (
-  SELECT sum(u.usage_quantity * coalesce(lp.pricing.default, 0)) AS raw_total_usd
+  SELECT sum(u.usage_quantity * coalesce(lp.price_usd, 0)) AS raw_total_usd
   FROM system.billing.usage u
-  LEFT JOIN system.billing.list_prices lp
+  LEFT JOIN (
+    SELECT cloud, sku_name, price_start_time, price_end_time, pricing.default AS price_usd
+    FROM system.billing.account_prices
+    UNION ALL
+    SELECT cloud, sku_name, price_start_time, price_end_time, pricing.default AS price_usd
+    FROM system.billing.list_prices lp
+    WHERE NOT EXISTS (
+      SELECT 1 FROM system.billing.account_prices ap
+      WHERE ap.cloud = lp.cloud AND ap.sku_name = lp.sku_name AND ap.price_start_time = lp.price_start_time
+    )
+  ) lp
     ON u.cloud = lp.cloud
    AND u.sku_name = lp.sku_name
    AND u.usage_start_time >= lp.price_start_time
@@ -73,9 +83,19 @@ raw_hour AS (
     workspace_id,
     usage_metadata.warehouse_id AS warehouse_id,
     date_trunc('HOUR', usage_start_time) AS hour_start,
-    sum(usage_quantity * coalesce(lp.pricing.default, 0)) AS raw_hour_cost
+    sum(usage_quantity * coalesce(lp.price_usd, 0)) AS raw_hour_cost
   FROM system.billing.usage u
-  LEFT JOIN system.billing.list_prices lp
+  LEFT JOIN (
+    SELECT cloud, sku_name, price_start_time, price_end_time, pricing.default AS price_usd
+    FROM system.billing.account_prices
+    UNION ALL
+    SELECT cloud, sku_name, price_start_time, price_end_time, pricing.default AS price_usd
+    FROM system.billing.list_prices lp
+    WHERE NOT EXISTS (
+      SELECT 1 FROM system.billing.account_prices ap
+      WHERE ap.cloud = lp.cloud AND ap.sku_name = lp.sku_name AND ap.price_start_time = lp.price_start_time
+    )
+  ) lp
     ON u.cloud = lp.cloud
    AND u.sku_name = lp.sku_name
    AND u.usage_start_time >= lp.price_start_time
