@@ -472,7 +472,7 @@
       {
         "id": "02cb54da911d44b89a0440a8c3d9d51a",
         "content": [
-          "=== COST ATTRIBUTION ===\nFor cost questions, prefer the pre-built rollup tables:\n  - 'how much did dashboard X cost' -> lakeview_dashboard_cost\n  - 'how much did genie space X cost' -> genie_space_cost\n  - 'cost per statement / cost per user' -> query_cost_attribution\n  - 'cost per warehouse' -> warehouse_cost\nThe cost columns are USD ($) and DBU. Window is configurable via cost.window_days (default 365 days, bounded by system.query.history retention of 90 days unless extended).\nIf the user asks for raw billing, join system.billing.usage to system.billing.account_prices (account's contracted rate) with fallback to system.billing.list_prices (public catalog rate) on cloud + sku_name where usage_start_time falls between price_start_time and price_end_time. Cost = usage_quantity * pricing.default."
+          "=== COST ATTRIBUTION ===\nFor cost questions, prefer the pre-built rollup tables:\n  - 'how much did dashboard X cost' -> lakeview_dashboard_cost\n  - 'how much did genie space X cost' -> genie_space_cost\n  - 'cost per statement / cost per user' -> query_cost_attribution\n  - 'cost per warehouse' -> warehouse_cost\nThe cost columns are USD ($) and DBU. Window is configurable via cost.window_days (default 365 days, which covers the full retention of system.query.history and system.billing.usage).\nIf the user asks for raw billing, join system.billing.usage to system.billing.account_prices (account's contracted rate) with fallback to system.billing.list_prices (public catalog rate) on cloud + sku_name where usage_start_time falls between price_start_time and price_end_time. Cost = usage_quantity * pricing.default."
         ]
       }
     ],

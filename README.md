@@ -35,10 +35,10 @@ Implements the algorithm from the Granular Cost Monitoring for Databricks SQL Pr
 
 Config knobs (in `databricks.yml`):
 
-- `cost.window_days` — attribution lookback in days (default `365`). Bounded above by `system.query.history` retention — default **90 days** in UC, up to **365 days** with extended retention enabled. Set the window equal to your retention. Going wider doesn't help; going narrower trims data unnecessarily.
+- `cost.window_days` — attribution lookback in days (default `365`). Both `system.query.history` and `system.billing.usage` retain ~365 days, so the default captures the full available history. Raise further only if you want to keep recomputing the same window.
 - `cost.discount_pct` — flat discount applied on top of the resolved price (default `0`; e.g. `35` for 35% off). Use this only if your contract is a flat discount that isn't already reflected in `system.billing.account_prices`.
 
-> **Note on history beyond 90 days:** because `system.query.history` typically retains 90 days, cost attribution past that point is unavailable from a single MV refresh — even at `window_days = 365`. If you want true multi-year per-object cost history, convert `query_cost_attribution` from a materialized view to a **streaming table** so each pipeline run appends new statements and the table persists data after the source row is purged. That's a future enhancement (one-line change to the decorator + checkpointing).
+> **Going beyond source retention:** to keep per-object cost history past ~365 days (i.e. once `system.query.history` rows start ageing out), convert `query_cost_attribution` from a materialized view to a **streaming table** so each pipeline run appends new statements and your copy outlives the source. That's a small follow-up (decorator + checkpoint).
 
 **Pricing source:** the MV prefers `system.billing.account_prices` (the customer's contracted rate) and falls back to `system.billing.list_prices` (public catalog rate) only for SKU/price-window rows the account table doesn't cover. Many demo / internal accounts have an empty `account_prices` — list_prices then carries the load. `cost.discount_pct` is an optional flat percentage applied on top (use it if your contract gives a flat discount that isn't reflected in `account_prices`).
 

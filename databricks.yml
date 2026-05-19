@@ -82,8 +82,8 @@ resources:
         "warehouse.source.warehouse_limit": ${var.source_warehouse_limit}
         "warehouse.source.output_batch_size": "64"
         # Query-level cost attribution.
-        # Bounded above by system.query.history retention (default 90 days in
-        # UC; up to 365 with extended retention). Window is intentionally wide
-        # so the rollup tables include as much history as the source has.
+        # 365 covers the full retention of system.query.history and
+        # system.billing.usage. To keep history past that, convert the
+        # query_cost_attribution MV to a streaming table.
         "cost.window_days": "365"
         "cost.discount_pct": "0"
