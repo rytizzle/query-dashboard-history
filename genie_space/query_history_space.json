@@ -357,67 +357,79 @@
               "Total number of rows of persistent data written to cloud object storage."
             ]
           }
+        ],
+        "description": [
+          "Raw statement-level execution history for SQL workloads \u2014 duration, status, phases, bytes, rows, and the query_source struct that identifies the originating object (dashboard, Genie space, notebook, job, alert, pipeline). The base table for all performance and origin questions. Large \u2014 always filter on start_time."
         ]
       },
       {
         "identifier": "{{CATALOG}}.{{SCHEMA}}.genie_space_current",
-        "column_configs": []
+        "column_configs": [],
+        "description": [
+          "Current state of every Genie space in the workspace. Join on space_id = query_source.genie_space_id to resolve space titles, see the configured warehouse, and surface metadata like instruction_count, table_count, sample_question_count, curated_question_count."
+        ]
       },
       {
         "identifier": "{{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_denormalized",
-        "column_configs": []
+        "column_configs": [],
+        "description": [
+          "Current state of every Lakeview dashboard, enriched with 30-day view counts (from system.access.audit) and 30-day query stats (from system.query.history). Join on dashboard_id = query_source.dashboard_id to resolve dashboard names and surface unused dashboards."
+        ]
       },
       {
         "identifier": "{{CATALOG}}.{{SCHEMA}}.warehouse_current",
-        "column_configs": []
+        "column_configs": [],
+        "description": [
+          "Current state of every SQL warehouse \u2014 size, type, serverless flag, auto-stop, channel, creator. Join on id = compute.warehouse_id to resolve warehouse names and surface configuration alongside cost."
+        ]
       },
       {
         "identifier": "system.billing.usage",
         "column_configs": [],
         "description": [
-          "DBU usage records by workspace/warehouse/SKU. Join to list_prices for $."
+          "DBU usage records by workspace, warehouse, and SKU. The base table for raw warehouse spend. Join to account_prices (preferred) or list_prices to convert DBUs into USD."
         ]
       },
       {
         "identifier": "system.billing.list_prices",
         "column_configs": [],
         "description": [
-          "Public list prices per SKU. Used as a fallback when account_prices does not have a row for the (cloud, sku, price_start_time)."
+          "Public catalog prices per SKU. Used as a fallback when account_prices does not have a row for a given (cloud, sku, price window)."
         ]
       },
       {
         "identifier": "{{CATALOG}}.{{SCHEMA}}.query_cost_attribution",
         "column_configs": [],
         "description": [
-          "Per-statement attributed warehouse cost. Has dashboard_id, genie_space_id, warehouse_id, attributed_cost_usd, attributed_dbus. Use this for cost-per-query/cost-per-object questions."
+          "Per-statement attributed warehouse cost (USD + DBU) using hourly proportional attribution. Key columns: statement_id, executed_by, warehouse_id, dashboard_id, genie_space_id, notebook_id, alert_id, job_id, client_application, work_ms, attributed_cost_usd, attributed_dbus. Use for cost-per-query, cost-per-user, and any custom rollup not already pre-built."
         ]
       },
       {
         "identifier": "{{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost",
         "column_configs": [],
         "description": [
-          "Per-dashboard 30-day cost rollup. dashboard_name, owner, statements, cost_usd, dbus."
+          "Per-dashboard attributed cost rollup. Window is configurable (default 365 days). Columns: dashboard_id, dashboard_name, owner, configured_warehouse_id, statements, cost_usd, dbus, avg_cost_per_statement_usd, last_statement_at. Use for \"which dashboards cost the most\" questions."
         ]
       },
       {
         "identifier": "{{CATALOG}}.{{SCHEMA}}.genie_space_cost",
         "column_configs": [],
         "description": [
-          "Per-Genie-space 30-day cost rollup. genie_space_title, statements, cost_usd, dbus, unique_users."
+          "Per-Genie-space attributed cost rollup. Window is configurable (default 365 days). Columns: space_id, genie_space_title, configured_warehouse_id, creator_id, statements, cost_usd, dbus, avg_cost_per_statement_usd, unique_users, last_statement_at. Use for \"which Genie spaces cost the most\" questions."
         ]
       },
       {
         "identifier": "{{CATALOG}}.{{SCHEMA}}.warehouse_cost",
         "column_configs": [],
         "description": [
-          "Per-warehouse 30-day cost rollup. warehouse_name, cluster_size, statements, cost_usd, dbus."
+          "Per-warehouse attributed cost rollup. Window is configurable (default 365 days). Columns: warehouse_id, warehouse_name, cluster_size, warehouse_type, enable_serverless_compute, statements, cost_usd, dbus, unique_users, dashboards_touched, genie_spaces_touched, last_statement_at. Use for \"which warehouses cost the most / who touched them\" questions."
         ]
       },
       {
         "identifier": "system.billing.account_prices",
         "column_configs": [],
         "description": [
-          "Account-specific contracted prices per SKU. Prefer over list_prices when populated; falls back to list_prices when empty."
+          "The account's contracted prices per SKU. Prefer over list_prices for any cost calculation. Falls back to list_prices for (cloud, sku, price window) rows the account table doesn't cover."
         ]
       }
     ]
