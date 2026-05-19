@@ -1,9 +1,9 @@
 -- Metric View for Query History Analytics Genie Space
 -- Source: system_utils.query_history.query_history_metrics
--- Deploy to: ryant_catalog.default.query_history_mv
+-- Deploy to: {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv
 -- Genie Space: 01f1225a0cff1b04a10de35374f97611
 
-CREATE OR REPLACE VIEW ryant_catalog.default.query_history_mv
+CREATE OR REPLACE VIEW {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv
 WITH METRICS
 LANGUAGE YAML
 AS $$

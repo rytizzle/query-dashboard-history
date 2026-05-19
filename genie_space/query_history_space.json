@@ -360,15 +360,15 @@
         ]
       },
       {
-        "identifier": "ryant_catalog.system_tables.genie_space_current",
+        "identifier": "{{CATALOG}}.{{SCHEMA}}.genie_space_current",
         "column_configs": []
       },
       {
-        "identifier": "ryant_catalog.system_tables.lakeview_dashboard_denormalized",
+        "identifier": "{{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_denormalized",
         "column_configs": []
       },
       {
-        "identifier": "ryant_catalog.system_tables.warehouse_current",
+        "identifier": "{{CATALOG}}.{{SCHEMA}}.warehouse_current",
         "column_configs": []
       },
       {
@@ -386,28 +386,28 @@
         ]
       },
       {
-        "identifier": "ryant_catalog.system_tables.query_cost_attribution",
+        "identifier": "{{CATALOG}}.{{SCHEMA}}.query_cost_attribution",
         "column_configs": [],
         "description": [
           "Per-statement attributed warehouse cost. Has dashboard_id, genie_space_id, warehouse_id, attributed_cost_usd, attributed_dbus. Use this for cost-per-query/cost-per-object questions."
         ]
       },
       {
-        "identifier": "ryant_catalog.system_tables.lakeview_dashboard_cost_l30d",
+        "identifier": "{{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost_l30d",
         "column_configs": [],
         "description": [
           "Per-dashboard 30-day cost rollup. dashboard_name, owner, statements, cost_usd, dbus."
         ]
       },
       {
-        "identifier": "ryant_catalog.system_tables.genie_space_cost_l30d",
+        "identifier": "{{CATALOG}}.{{SCHEMA}}.genie_space_cost_l30d",
         "column_configs": [],
         "description": [
           "Per-Genie-space 30-day cost rollup. genie_space_title, statements, cost_usd, dbus, unique_users."
         ]
       },
       {
-        "identifier": "ryant_catalog.system_tables.warehouse_cost_l30d",
+        "identifier": "{{CATALOG}}.{{SCHEMA}}.warehouse_cost_l30d",
         "column_configs": [],
         "description": [
           "Per-warehouse 30-day cost rollup. warehouse_name, cluster_size, statements, cost_usd, dbus."
@@ -758,7 +758,7 @@
           "alias": "history"
         },
         "right": {
-          "identifier": "ryant_catalog.system_tables.genie_space_current",
+          "identifier": "{{CATALOG}}.{{SCHEMA}}.genie_space_current",
           "alias": "genie_space_current"
         },
         "sql": [
@@ -773,7 +773,7 @@
           "alias": "history"
         },
         "right": {
-          "identifier": "ryant_catalog.system_tables.lakeview_dashboard_denormalized",
+          "identifier": "{{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_denormalized",
           "alias": "lakeview_dashboard_denormalized"
         },
         "sql": [
@@ -788,7 +788,7 @@
           "alias": "history"
         },
         "right": {
-          "identifier": "ryant_catalog.system_tables.warehouse_current",
+          "identifier": "{{CATALOG}}.{{SCHEMA}}.warehouse_current",
           "alias": "warehouse_current"
         },
         "sql": [
@@ -823,7 +823,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT d.display_name AS dashboard_name, d.owner, d.count_queries_l30d, ROUND(try_divide(d.total_task_duration_l30d, d.count_queries_l30d) / 1000, 2) AS avg_query_sec FROM ryant_catalog.system_tables.lakeview_dashboard_denormalized d WHERE d.count_queries_l30d > 0 ORDER BY avg_query_sec DESC LIMIT 10\n"
+              "SELECT d.display_name AS dashboard_name, d.owner, d.count_queries_l30d, ROUND(try_divide(d.total_task_duration_l30d, d.count_queries_l30d) / 1000, 2) AS avg_query_sec FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_denormalized d WHERE d.count_queries_l30d > 0 ORDER BY avg_query_sec DESC LIMIT 10\n"
             ]
           }
         ]
@@ -851,7 +851,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT name AS warehouse_name, id AS warehouse_id, state, warehouse_type, cluster_size, auto_stop_mins, enable_serverless_compute, creator_name FROM ryant_catalog.system_tables.warehouse_current ORDER BY name\n"
+              "SELECT name AS warehouse_name, id AS warehouse_id, state, warehouse_type, cluster_size, auto_stop_mins, enable_serverless_compute, creator_name FROM {{CATALOG}}.{{SCHEMA}}.warehouse_current ORDER BY name\n"
             ]
           }
         ]
@@ -879,7 +879,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT d.display_name AS dashboard_name, d.owner, COUNT(*) AS query_count, COUNT(DISTINCT h.executed_by) AS unique_users FROM system.query.history h JOIN ryant_catalog.system_tables.lakeview_dashboard_denormalized d ON h.query_source.dashboard_id = d.dashboard_id WHERE h.start_time >= current_date() - INTERVAL 7 DAYS GROUP BY d.display_name, d.owner ORDER BY query_count DESC LIMIT 10\n"
+              "SELECT d.display_name AS dashboard_name, d.owner, COUNT(*) AS query_count, COUNT(DISTINCT h.executed_by) AS unique_users FROM system.query.history h JOIN {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_denormalized d ON h.query_source.dashboard_id = d.dashboard_id WHERE h.start_time >= current_date() - INTERVAL 7 DAYS GROUP BY d.display_name, d.owner ORDER BY query_count DESC LIMIT 10\n"
             ]
           }
         ]
@@ -893,7 +893,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT display_name AS dashboard_name, owner, schedule_count, schedule_frequency_daily, schedule_frequency_hourly, schedule_frequency_weekly, count_queries_l30d FROM ryant_catalog.system_tables.lakeview_dashboard_denormalized WHERE schedule_count > 0 ORDER BY schedule_count DESC LIMIT 20\n"
+              "SELECT display_name AS dashboard_name, owner, schedule_count, schedule_frequency_daily, schedule_frequency_hourly, schedule_frequency_weekly, count_queries_l30d FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_denormalized WHERE schedule_count > 0 ORDER BY schedule_count DESC LIMIT 20\n"
             ]
           }
         ]
@@ -907,7 +907,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT COUNT(*) AS total_dashboards, SUM(CASE WHEN lifecycle_state = 'ACTIVE' THEN 1 ELSE 0 END) AS active, SUM(CASE WHEN count_queries_l30d = 0 AND coalesce(views.published_l30d, 0) = 0 THEN 1 ELSE 0 END) AS unused_l30d, SUM(CASE WHEN count_queries_l30d > 0 THEN 1 ELSE 0 END) AS queried_l30d, SUM(CASE WHEN schedule_count > 0 THEN 1 ELSE 0 END) AS scheduled FROM ryant_catalog.system_tables.lakeview_dashboard_denormalized\n"
+              "SELECT COUNT(*) AS total_dashboards, SUM(CASE WHEN lifecycle_state = 'ACTIVE' THEN 1 ELSE 0 END) AS active, SUM(CASE WHEN count_queries_l30d = 0 AND coalesce(views.published_l30d, 0) = 0 THEN 1 ELSE 0 END) AS unused_l30d, SUM(CASE WHEN count_queries_l30d > 0 THEN 1 ELSE 0 END) AS queried_l30d, SUM(CASE WHEN schedule_count > 0 THEN 1 ELSE 0 END) AS scheduled FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_denormalized\n"
             ]
           }
         ]
@@ -921,7 +921,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT display_name AS dashboard_name, owner, path, count_queries_l30d, views.published_l30d, views.draft_l30d FROM ryant_catalog.system_tables.lakeview_dashboard_denormalized WHERE count_queries_l30d = 0 AND coalesce(views.published_l30d, 0) = 0 AND coalesce(views.draft_l30d, 0) = 0 AND lifecycle_state = 'ACTIVE' ORDER BY create_time LIMIT 10\n"
+              "SELECT display_name AS dashboard_name, owner, path, count_queries_l30d, views.published_l30d, views.draft_l30d FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_denormalized WHERE count_queries_l30d = 0 AND coalesce(views.published_l30d, 0) = 0 AND coalesce(views.draft_l30d, 0) = 0 AND lifecycle_state = 'ACTIVE' ORDER BY create_time LIMIT 10\n"
             ]
           }
         ]
@@ -935,7 +935,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT w.name AS warehouse_name, w.warehouse_type, w.cluster_size, COUNT(*) AS query_count, COUNT(DISTINCT h.executed_by) AS unique_users FROM system.query.history h JOIN ryant_catalog.system_tables.warehouse_current w ON h.compute.warehouse_id = w.id WHERE h.start_time >= current_date() - INTERVAL 7 DAYS GROUP BY w.name, w.warehouse_type, w.cluster_size ORDER BY query_count DESC LIMIT 10\n"
+              "SELECT w.name AS warehouse_name, w.warehouse_type, w.cluster_size, COUNT(*) AS query_count, COUNT(DISTINCT h.executed_by) AS unique_users FROM system.query.history h JOIN {{CATALOG}}.{{SCHEMA}}.warehouse_current w ON h.compute.warehouse_id = w.id WHERE h.start_time >= current_date() - INTERVAL 7 DAYS GROUP BY w.name, w.warehouse_type, w.cluster_size ORDER BY query_count DESC LIMIT 10\n"
             ]
           }
         ]
@@ -949,7 +949,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT g.title AS genie_space_name, g.table_count, COUNT(*) AS query_count, COUNT(DISTINCT h.executed_by) AS unique_users FROM system.query.history h JOIN ryant_catalog.system_tables.genie_space_current g ON h.query_source.genie_space_id = g.space_id WHERE h.start_time >= current_date() - INTERVAL 7 DAYS GROUP BY g.title, g.table_count ORDER BY query_count DESC LIMIT 10\n"
+              "SELECT g.title AS genie_space_name, g.table_count, COUNT(*) AS query_count, COUNT(DISTINCT h.executed_by) AS unique_users FROM system.query.history h JOIN {{CATALOG}}.{{SCHEMA}}.genie_space_current g ON h.query_source.genie_space_id = g.space_id WHERE h.start_time >= current_date() - INTERVAL 7 DAYS GROUP BY g.title, g.table_count ORDER BY query_count DESC LIMIT 10\n"
             ]
           }
         ]
@@ -963,7 +963,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT title AS genie_space_name, space_id, warehouse_id, table_count, instruction_count, sample_question_count, curated_question_count FROM ryant_catalog.system_tables.genie_space_current ORDER BY title\n"
+              "SELECT title AS genie_space_name, space_id, warehouse_id, table_count, instruction_count, sample_question_count, curated_question_count FROM {{CATALOG}}.{{SCHEMA}}.genie_space_current ORDER BY title\n"
             ]
           }
         ]
@@ -986,7 +986,7 @@
               "  coalesce(recent.unique_users, 0) AS unique_users_last_30d,\n",
               "  coalesce(older.query_count, 0) AS queries_30_to_90d,\n",
               "  coalesce(older.unique_users, 0) AS unique_users_30_to_90d\n",
-              "FROM ryant_catalog.system_tables.genie_space_current g\n",
+              "FROM {{CATALOG}}.{{SCHEMA}}.genie_space_current g\n",
               "LEFT JOIN (\n",
               "  SELECT query_source.genie_space_id, COUNT(*) AS query_count, COUNT(DISTINCT executed_by) AS unique_users\n",
               "  FROM system.query.history\n",
@@ -1024,7 +1024,7 @@
               "  coalesce(d.views.published_users_l30d, 0) AS unique_viewers_l30d,\n",
               "  coalesce(d.views.draft_l30d, 0) AS draft_views_l30d,\n",
               "  d.schedule_count\n",
-              "FROM ryant_catalog.system_tables.lakeview_dashboard_denormalized d\n",
+              "FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_denormalized d\n",
               "WHERE d.count_queries_l30d > 0\n",
               "  AND coalesce(d.views.published_users_l30d, 0) <= 2\n",
               "ORDER BY d.total_task_duration_l30d DESC\n",
@@ -1042,7 +1042,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT dashboard_name, owner, statements, ROUND(cost_usd, 2) AS cost_usd FROM ryant_catalog.system_tables.lakeview_dashboard_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
+              "SELECT dashboard_name, owner, statements, ROUND(cost_usd, 2) AS cost_usd FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
             ]
           }
         ]
@@ -1056,7 +1056,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT genie_space_title, statements, ROUND(cost_usd, 2) AS cost_usd, unique_users FROM ryant_catalog.system_tables.genie_space_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
+              "SELECT genie_space_title, statements, ROUND(cost_usd, 2) AS cost_usd, unique_users FROM {{CATALOG}}.{{SCHEMA}}.genie_space_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
             ]
           }
         ]
@@ -1070,7 +1070,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT dashboard_name, owner, statements, ROUND(cost_usd, 2) AS cost_usd, ROUND(dbus, 4) AS dbus FROM ryant_catalog.system_tables.lakeview_dashboard_cost_l30d WHERE dashboard_name ILIKE '%Sales Overview%'\n"
+              "SELECT dashboard_name, owner, statements, ROUND(cost_usd, 2) AS cost_usd, ROUND(dbus, 4) AS dbus FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost_l30d WHERE dashboard_name ILIKE '%Sales Overview%'\n"
             ]
           }
         ]
@@ -1084,7 +1084,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT ROUND(SUM(cost_usd), 2) AS total_dashboard_cost_usd, SUM(statements) AS total_statements FROM ryant_catalog.system_tables.lakeview_dashboard_cost_l30d\n"
+              "SELECT ROUND(SUM(cost_usd), 2) AS total_dashboard_cost_usd, SUM(statements) AS total_statements FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost_l30d\n"
             ]
           }
         ]
@@ -1098,7 +1098,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT ROUND(SUM(cost_usd), 2) AS total_genie_cost_usd, SUM(statements) AS total_statements FROM ryant_catalog.system_tables.genie_space_cost_l30d\n"
+              "SELECT ROUND(SUM(cost_usd), 2) AS total_genie_cost_usd, SUM(statements) AS total_statements FROM {{CATALOG}}.{{SCHEMA}}.genie_space_cost_l30d\n"
             ]
           }
         ]
@@ -1112,7 +1112,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT executed_by, COUNT(*) AS statements, ROUND(SUM(attributed_cost_usd), 2) AS cost_usd FROM ryant_catalog.system_tables.query_cost_attribution GROUP BY executed_by ORDER BY cost_usd DESC LIMIT 10\n"
+              "SELECT executed_by, COUNT(*) AS statements, ROUND(SUM(attributed_cost_usd), 2) AS cost_usd FROM {{CATALOG}}.{{SCHEMA}}.query_cost_attribution GROUP BY executed_by ORDER BY cost_usd DESC LIMIT 10\n"
             ]
           }
         ]
@@ -1126,7 +1126,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT date_trunc('DAY', start_time) AS day, CASE WHEN dashboard_id IS NOT NULL THEN 'dashboard' WHEN genie_space_id IS NOT NULL THEN 'genie_space' WHEN notebook_id IS NOT NULL THEN 'notebook' WHEN job_id IS NOT NULL THEN 'job' ELSE 'other' END AS source_type, ROUND(SUM(attributed_cost_usd), 2) AS cost_usd FROM ryant_catalog.system_tables.query_cost_attribution GROUP BY 1, 2 ORDER BY 1, 2\n"
+              "SELECT date_trunc('DAY', start_time) AS day, CASE WHEN dashboard_id IS NOT NULL THEN 'dashboard' WHEN genie_space_id IS NOT NULL THEN 'genie_space' WHEN notebook_id IS NOT NULL THEN 'notebook' WHEN job_id IS NOT NULL THEN 'job' ELSE 'other' END AS source_type, ROUND(SUM(attributed_cost_usd), 2) AS cost_usd FROM {{CATALOG}}.{{SCHEMA}}.query_cost_attribution GROUP BY 1, 2 ORDER BY 1, 2\n"
             ]
           }
         ]
@@ -1140,7 +1140,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT warehouse_name, cluster_size, statements, ROUND(cost_usd, 2) AS cost_usd, dashboards_touched, genie_spaces_touched FROM ryant_catalog.system_tables.warehouse_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
+              "SELECT warehouse_name, cluster_size, statements, ROUND(cost_usd, 2) AS cost_usd, dashboards_touched, genie_spaces_touched FROM {{CATALOG}}.{{SCHEMA}}.warehouse_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
             ]
           }
         ]
@@ -1154,7 +1154,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT dashboard_name, statements, ROUND(avg_cost_per_statement_usd, 4) AS avg_cost_per_statement_usd, ROUND(cost_usd, 2) AS total_cost_usd FROM ryant_catalog.system_tables.lakeview_dashboard_cost_l30d WHERE statements > 0 ORDER BY avg_cost_per_statement_usd DESC LIMIT 20\n"
+              "SELECT dashboard_name, statements, ROUND(avg_cost_per_statement_usd, 4) AS avg_cost_per_statement_usd, ROUND(cost_usd, 2) AS total_cost_usd FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost_l30d WHERE statements > 0 ORDER BY avg_cost_per_statement_usd DESC LIMIT 20\n"
             ]
           }
         ]
@@ -1168,7 +1168,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT genie_space_title, unique_users, statements, ROUND(cost_usd, 2) AS cost_usd FROM ryant_catalog.system_tables.genie_space_cost_l30d ORDER BY unique_users DESC LIMIT 10\n"
+              "SELECT genie_space_title, unique_users, statements, ROUND(cost_usd, 2) AS cost_usd FROM {{CATALOG}}.{{SCHEMA}}.genie_space_cost_l30d ORDER BY unique_users DESC LIMIT 10\n"
             ]
           }
         ]

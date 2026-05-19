@@ -450,7 +450,7 @@
     ],
     "metric_views": [
       {
-        "identifier": "ryant_catalog.default.query_history_mv",
+        "identifier": "{{CATALOG}}.{{MV_SCHEMA}}.query_history_mv",
         "description": [
           "Metric view with pre-defined measures (Total Queries, Avg Duration, P50/P95/P99 latency, Cache Hit Rate, Failure Rate, Spill Rate, data volume) and dimensions (time, user, warehouse, query source, performance flags). Use MEASURE() to reference measures."
         ]
@@ -464,11 +464,11 @@
         "content": [
           "=== DATA SOURCES ===\n",
           "1. system.query.history \u2014 raw query history with structs (compute, query_source) and byte/ms units.\n",
-          "2. ryant_catalog.default.query_history_mv \u2014 METRIC VIEW with pre-defined measures and dimensions.\n",
+          "2. {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv \u2014 METRIC VIEW with pre-defined measures and dimensions.\n",
           "\n",
           "=== WHEN TO USE EACH SOURCE ===\n",
           "METRIC VIEW: Use for aggregate/KPI questions \u2014 totals, averages, rates, percentiles, counts by dimension.\n",
-          "  Syntax: SELECT dim, MEASURE(`measure_name`) FROM ryant_catalog.default.query_history_mv WHERE ... GROUP BY ALL\n",
+          "  Syntax: SELECT dim, MEASURE(`measure_name`) FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv WHERE ... GROUP BY ALL\n",
           "  Filter on `Query Date` (date type) for the metric view, not `Start Time`.\n",
           "RAW TABLE: Use when user needs statement_text, error_message, query_tags, individual query details, or columns not in the metric view.\n",
           "  Filter on start_time (timestamp) for the raw table.\n",
@@ -618,7 +618,7 @@
           "  MEASURE(`Total Queries`) AS total_queries,\n",
           "  MEASURE(`Cache Hit Rate Pct`) AS cache_hit_rate_pct,\n",
           "  MEASURE(`Spill Rate Pct`) AS spill_rate_pct\n",
-          "FROM ryant_catalog.default.query_history_mv\n",
+          "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
           "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
           "  AND `Warehouse ID` IS NOT NULL\n",
           "GROUP BY ALL\n",
@@ -633,7 +633,7 @@
         "sql": [
           "SELECT `Warehouse ID`,\n",
           "  MEASURE(`P95 Duration Sec`) AS p95_duration_sec\n",
-          "FROM ryant_catalog.default.query_history_mv\n",
+          "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
           "WHERE `Query Date` >= DATE_TRUNC('WEEK', CURRENT_DATE)\n",
           "  AND `Warehouse ID` IS NOT NULL\n",
           "GROUP BY ALL\n",
@@ -687,7 +687,7 @@
           "SELECT `Query Source Type`,\n",
           "  MEASURE(`Total Queries`) AS total_queries,\n",
           "  MEASURE(`Unique Users`) AS unique_users\n",
-          "FROM ryant_catalog.default.query_history_mv\n",
+          "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
           "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
           "GROUP BY ALL\n",
           "ORDER BY total_queries DESC"
@@ -719,7 +719,7 @@
         "sql": [
           "SELECT `Query Date`,\n",
           "  MEASURE(`Failure Rate Pct`) AS failure_rate_pct\n",
-          "FROM ryant_catalog.default.query_history_mv\n",
+          "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
           "WHERE `Query Date` >= current_date() - INTERVAL 30 DAYS\n",
           "GROUP BY ALL\n",
           "ORDER BY `Query Date`"
@@ -761,7 +761,7 @@
           "  MEASURE(`Failed Query Count`) AS failed_queries,\n",
           "  MEASURE(`Long Wait Query Count`) AS long_wait_queries,\n",
           "  MEASURE(`Poor Scan Query Count`) AS poor_scan_queries\n",
-          "FROM ryant_catalog.default.query_history_mv\n",
+          "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
           "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
           "GROUP BY ALL"
         ]
@@ -773,7 +773,7 @@
         ],
         "sql": [
           "SELECT MEASURE(`Total Read GB`) AS total_read_gb\n",
-          "FROM ryant_catalog.default.query_history_mv\n",
+          "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
           "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
           "GROUP BY ALL"
         ]
@@ -960,7 +960,7 @@
             "content": [
               "SELECT `Warehouse ID`,\n",
               "  MEASURE(`Cache Hit Rate Pct`) AS cache_hit_rate_pct\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
               "  AND `Warehouse ID` IS NOT NULL\n",
               "GROUP BY ALL\n",
@@ -1004,7 +1004,7 @@
             "content": [
               "SELECT `Query Date`,\n",
               "  MEASURE(`Total Queries`) AS total_queries\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 30 DAYS\n",
               "GROUP BY ALL\n",
               "ORDER BY `Query Date`"
@@ -1023,7 +1023,7 @@
             "content": [
               "SELECT `Executed By`,\n",
               "  MEASURE(`Total Queries`) AS query_count\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
               "GROUP BY ALL\n",
               "ORDER BY query_count DESC\n",
@@ -1043,7 +1043,7 @@
             "content": [
               "SELECT `Warehouse ID`,\n",
               "  MEASURE(`P95 Duration Sec`) AS p95_duration_sec\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
               "  AND `Warehouse ID` IS NOT NULL\n",
               "GROUP BY ALL\n",
@@ -1087,7 +1087,7 @@
               "  MEASURE(`Failed Query Count`) AS failed_queries,\n",
               "  MEASURE(`Long Wait Query Count`) AS long_wait_queries,\n",
               "  MEASURE(`Poor Scan Query Count`) AS poor_scan_queries\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
               "GROUP BY ALL"
             ]
@@ -1104,7 +1104,7 @@
             "format": "SQL",
             "content": [
               "SELECT MEASURE(`Total Queries`) AS total_queries\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` = current_date() - INTERVAL 1 DAY\n",
               "GROUP BY ALL"
             ]
@@ -1121,7 +1121,7 @@
             "format": "SQL",
             "content": [
               "SELECT MEASURE(`Total Read GB`) AS total_read_gb\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
               "GROUP BY ALL"
             ]
@@ -1159,7 +1159,7 @@
             "content": [
               "SELECT `Query Hour`,\n",
               "  MEASURE(`Total Queries`) AS total_queries\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
               "GROUP BY ALL\n",
               "ORDER BY `Query Hour`"
@@ -1178,7 +1178,7 @@
             "content": [
               "SELECT `Query Date`,\n",
               "  MEASURE(`Failure Rate Pct`) AS failure_rate_pct\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 30 DAYS\n",
               "GROUP BY ALL\n",
               "ORDER BY `Query Date`"
@@ -1197,7 +1197,7 @@
             "content": [
               "SELECT `Query Source Type`,\n",
               "  MEASURE(`Total Queries`) AS total_queries\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
               "  AND `Query Source Type` IN ('Genie Space', 'AI/BI Dashboard', 'Notebook')\n",
               "GROUP BY ALL\n",
@@ -1218,7 +1218,7 @@
               "SELECT `Query Source Type`,\n",
               "  MEASURE(`Total Queries`) AS total_queries,\n",
               "  MEASURE(`Unique Users`) AS unique_users\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
               "GROUP BY ALL\n",
               "ORDER BY total_queries DESC"
@@ -1237,7 +1237,7 @@
             "content": [
               "SELECT `Warehouse ID`,\n",
               "  MEASURE(`Avg Wait Pct`) AS avg_wait_pct\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
               "  AND `Warehouse ID` IS NOT NULL\n",
               "GROUP BY ALL\n",
@@ -1257,7 +1257,7 @@
             "content": [
               "SELECT `Executed By`,\n",
               "  MEASURE(`Total Duration Sec`) AS total_duration_sec\n",
-              "FROM ryant_catalog.default.query_history_mv\n",
+              "FROM {{CATALOG}}.{{MV_SCHEMA}}.query_history_mv\n",
               "WHERE `Query Date` >= current_date() - INTERVAL 7 DAYS\n",
               "  AND `Executed By` IS NOT NULL\n",
               "GROUP BY ALL\n",

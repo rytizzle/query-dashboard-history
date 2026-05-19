@@ -51,11 +51,15 @@ The customer can plug in their effective $/DBU later; today we use `system.billi
 ├── warehouse_snapshot_source.py            # PySpark Python Data Source — SQL warehouses
 ├── tests/
 │   └── cost_attribution_benchmarks.sql     # Sanity-check SQL for cost MV correctness
-└── genie_space/                            # Reference artifacts for the Query History Genie space
-    ├── query_history_metric_view.sql       # UC metric view definition
-    ├── query_history_space.json            # Genie space config (now incl. cost benchmarks)
-    ├── genie_space_api_export.json         # Full export from Genie API
-    └── genie_space_getspace_response.json  # Raw GetSpace response snapshot
+├── scripts/
+│   └── render_genie_space.py               # Substitute {{CATALOG}}/{{SCHEMA}}/{{MV_SCHEMA}} in templates
+├── Makefile                                # Wraps render + bundle deploy/run
+└── genie_space/                            # Templated Genie space artifacts
+    ├── query_history_metric_view.sql       # UC metric view definition (templated)
+    ├── query_history_space.json            # Genie space config + cost benchmarks (templated)
+    ├── genie_space_api_export.json         # Full export from Genie API (templated)
+    ├── genie_space_getspace_response.json  # Raw GetSpace response snapshot (templated)
+    └── rendered/                           # Output of `make render` — gitignored, deploy-ready
 ```
 
 ## How it works
@@ -116,9 +120,31 @@ The `dev` target defaults to small limits (200 of each) for fast iteration. The 
 
 Reference artifacts for a Genie space backed by a UC metric view over `system.query.history`, augmented with the pipeline's cost-attribution outputs. Use this for natural-language analytics on performance, cost attribution, and capacity planning.
 
-1. Edit `genie_space/query_history_metric_view.sql` to point at your catalog/schema and run it.
-2. Create a Genie space in the workspace and point it at the metric view from step 1 plus the four cost MVs (`query_cost_attribution`, `lakeview_dashboard_cost_l30d`, `genie_space_cost_l30d`, `warehouse_cost_l30d`).
-3. Import space config (instructions, benchmarks) using `query_history_space.json` via the Genie API or copy values manually. The benchmarks include 10 cost-attribution test questions ("which 10 dashboards cost the most", "which user runs the most expensive queries", etc.).
+The artifacts in `genie_space/` are **templates** with three placeholders:
+
+| Placeholder | Meaning | Source |
+|---|---|---|
+| `{{CATALOG}}` | UC catalog containing pipeline outputs | `var.catalog` |
+| `{{SCHEMA}}` | UC schema containing pipeline outputs | `var.schema` |
+| `{{MV_SCHEMA}}` | Schema where `query_history_mv` lives | `var.metric_view_schema` |
+
+Render them with your target catalog/schema before importing:
+
+```bash
+make render                                         # uses defaults from databricks.yml
+make render CATALOG=acme SCHEMA=workspace_inv       # override
+python3 scripts/render_genie_space.py --catalog acme --schema workspace_inv --mv-schema default
+```
+
+Rendered output lands in `genie_space/rendered/` (gitignored).
+
+Then deploy:
+
+1. Run the rendered `genie_space/rendered/query_history_metric_view.sql` to create the metric view.
+2. Create a Genie space and point it at the metric view plus the four cost MVs (`query_cost_attribution`, `lakeview_dashboard_cost_l30d`, `genie_space_cost_l30d`, `warehouse_cost_l30d`).
+3. Import space config from `genie_space/rendered/query_history_space.json` via the Genie API (or paste values manually). The benchmarks include 10 cost-attribution test questions ("which 10 dashboards cost the most", "which user runs the most expensive queries", etc.).
+
+The DAB itself (`make deploy`) renders automatically before `databricks bundle deploy`.
 
 ## Testing
 

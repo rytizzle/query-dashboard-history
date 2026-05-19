@@ -6,6 +6,9 @@ variables:
     default: ryant_catalog
   schema:
     default: system_tables
+  metric_view_schema:
+    default: default
+    description: "Schema where the query_history_mv metric view is deployed (used by render_genie_space.py)."
   source_dashboard_limit:
     default: "0"
   source_genie_limit:
