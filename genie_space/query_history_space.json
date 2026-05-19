@@ -393,21 +393,21 @@
         ]
       },
       {
-        "identifier": "{{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost_l30d",
+        "identifier": "{{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost",
         "column_configs": [],
         "description": [
           "Per-dashboard 30-day cost rollup. dashboard_name, owner, statements, cost_usd, dbus."
         ]
       },
       {
-        "identifier": "{{CATALOG}}.{{SCHEMA}}.genie_space_cost_l30d",
+        "identifier": "{{CATALOG}}.{{SCHEMA}}.genie_space_cost",
         "column_configs": [],
         "description": [
           "Per-Genie-space 30-day cost rollup. genie_space_title, statements, cost_usd, dbus, unique_users."
         ]
       },
       {
-        "identifier": "{{CATALOG}}.{{SCHEMA}}.warehouse_cost_l30d",
+        "identifier": "{{CATALOG}}.{{SCHEMA}}.warehouse_cost",
         "column_configs": [],
         "description": [
           "Per-warehouse 30-day cost rollup. warehouse_name, cluster_size, statements, cost_usd, dbus."
@@ -472,7 +472,7 @@
       {
         "id": "02cb54da911d44b89a0440a8c3d9d51a",
         "content": [
-          "=== COST ATTRIBUTION ===\nFor cost questions, prefer the pre-built rollup tables:\n  - 'how much did dashboard X cost' -> lakeview_dashboard_cost_l30d\n  - 'how much did genie space X cost' -> genie_space_cost_l30d\n  - 'cost per statement / cost per user' -> query_cost_attribution\n  - 'cost per warehouse' -> warehouse_cost_l30d\nThe cost columns are USD ($) and DBU. Window is the last 30 days.\nIf the user asks for raw billing, join system.billing.usage to system.billing.account_prices (account's contracted rate) with fallback to system.billing.list_prices (public catalog rate) on cloud + sku_name where usage_start_time falls between price_start_time and price_end_time. Cost = usage_quantity * pricing.default."
+          "=== COST ATTRIBUTION ===\nFor cost questions, prefer the pre-built rollup tables:\n  - 'how much did dashboard X cost' -> lakeview_dashboard_cost\n  - 'how much did genie space X cost' -> genie_space_cost\n  - 'cost per statement / cost per user' -> query_cost_attribution\n  - 'cost per warehouse' -> warehouse_cost\nThe cost columns are USD ($) and DBU. Window is configurable via cost.window_days (default 365 days, bounded by system.query.history retention of 90 days unless extended).\nIf the user asks for raw billing, join system.billing.usage to system.billing.account_prices (account's contracted rate) with fallback to system.billing.list_prices (public catalog rate) on cloud + sku_name where usage_start_time falls between price_start_time and price_end_time. Cost = usage_quantity * pricing.default."
         ]
       }
     ],
@@ -1043,13 +1043,13 @@
       {
         "id": "86135b73d78a4e29a1077e6e38b0fb32",
         "question": [
-          "Which 10 dashboards cost the most in the last 30 days?"
+          "Which 10 dashboards cost the most over the configured cost window?"
         ],
         "answer": [
           {
             "format": "SQL",
             "content": [
-              "SELECT dashboard_name, owner, statements, ROUND(cost_usd, 2) AS cost_usd FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
+              "SELECT dashboard_name, owner, statements, ROUND(cost_usd, 2) AS cost_usd FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost ORDER BY cost_usd DESC LIMIT 10\n"
             ]
           }
         ]
@@ -1057,13 +1057,13 @@
       {
         "id": "4766bf3e20ec488cb196dc0f2f96b8b6",
         "question": [
-          "Which 10 Genie spaces cost the most in the last 30 days?"
+          "Which 10 Genie spaces cost the most over the configured cost window?"
         ],
         "answer": [
           {
             "format": "SQL",
             "content": [
-              "SELECT genie_space_title, statements, ROUND(cost_usd, 2) AS cost_usd, unique_users FROM {{CATALOG}}.{{SCHEMA}}.genie_space_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
+              "SELECT genie_space_title, statements, ROUND(cost_usd, 2) AS cost_usd, unique_users FROM {{CATALOG}}.{{SCHEMA}}.genie_space_cost ORDER BY cost_usd DESC LIMIT 10\n"
             ]
           }
         ]
@@ -1071,13 +1071,13 @@
       {
         "id": "10b6a60e90bd4418b9c8ee18256b199f",
         "question": [
-          "How much did the dashboard called 'Sales Overview' cost in the last 30 days?"
+          "How much did the dashboard called 'Sales Overview' cost over the configured cost window?"
         ],
         "answer": [
           {
             "format": "SQL",
             "content": [
-              "SELECT dashboard_name, owner, statements, ROUND(cost_usd, 2) AS cost_usd, ROUND(dbus, 4) AS dbus FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost_l30d WHERE dashboard_name ILIKE '%Sales Overview%'\n"
+              "SELECT dashboard_name, owner, statements, ROUND(cost_usd, 2) AS cost_usd, ROUND(dbus, 4) AS dbus FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost WHERE dashboard_name ILIKE '%Sales Overview%'\n"
             ]
           }
         ]
@@ -1085,13 +1085,13 @@
       {
         "id": "81d036b4052944689e5575f09f87a78f",
         "question": [
-          "What is the total dashboard-driven cost in the last 30 days?"
+          "What is the total dashboard-driven cost over the configured cost window?"
         ],
         "answer": [
           {
             "format": "SQL",
             "content": [
-              "SELECT ROUND(SUM(cost_usd), 2) AS total_dashboard_cost_usd, SUM(statements) AS total_statements FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost_l30d\n"
+              "SELECT ROUND(SUM(cost_usd), 2) AS total_dashboard_cost_usd, SUM(statements) AS total_statements FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost\n"
             ]
           }
         ]
@@ -1099,13 +1099,13 @@
       {
         "id": "8afb87aa30804bc0986f114e1bcc23a0",
         "question": [
-          "What is the total Genie-driven cost in the last 30 days?"
+          "What is the total Genie-driven cost over the configured cost window?"
         ],
         "answer": [
           {
             "format": "SQL",
             "content": [
-              "SELECT ROUND(SUM(cost_usd), 2) AS total_genie_cost_usd, SUM(statements) AS total_statements FROM {{CATALOG}}.{{SCHEMA}}.genie_space_cost_l30d\n"
+              "SELECT ROUND(SUM(cost_usd), 2) AS total_genie_cost_usd, SUM(statements) AS total_statements FROM {{CATALOG}}.{{SCHEMA}}.genie_space_cost\n"
             ]
           }
         ]
@@ -1147,7 +1147,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT warehouse_name, cluster_size, statements, ROUND(cost_usd, 2) AS cost_usd, dashboards_touched, genie_spaces_touched FROM {{CATALOG}}.{{SCHEMA}}.warehouse_cost_l30d ORDER BY cost_usd DESC LIMIT 10\n"
+              "SELECT warehouse_name, cluster_size, statements, ROUND(cost_usd, 2) AS cost_usd, dashboards_touched, genie_spaces_touched FROM {{CATALOG}}.{{SCHEMA}}.warehouse_cost ORDER BY cost_usd DESC LIMIT 10\n"
             ]
           }
         ]
@@ -1161,7 +1161,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT dashboard_name, statements, ROUND(avg_cost_per_statement_usd, 4) AS avg_cost_per_statement_usd, ROUND(cost_usd, 2) AS total_cost_usd FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost_l30d WHERE statements > 0 ORDER BY avg_cost_per_statement_usd DESC LIMIT 20\n"
+              "SELECT dashboard_name, statements, ROUND(avg_cost_per_statement_usd, 4) AS avg_cost_per_statement_usd, ROUND(cost_usd, 2) AS total_cost_usd FROM {{CATALOG}}.{{SCHEMA}}.lakeview_dashboard_cost WHERE statements > 0 ORDER BY avg_cost_per_statement_usd DESC LIMIT 20\n"
             ]
           }
         ]
@@ -1175,7 +1175,7 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT genie_space_title, unique_users, statements, ROUND(cost_usd, 2) AS cost_usd FROM {{CATALOG}}.{{SCHEMA}}.genie_space_cost_l30d ORDER BY unique_users DESC LIMIT 10\n"
+              "SELECT genie_space_title, unique_users, statements, ROUND(cost_usd, 2) AS cost_usd FROM {{CATALOG}}.{{SCHEMA}}.genie_space_cost ORDER BY unique_users DESC LIMIT 10\n"
             ]
           }
         ]

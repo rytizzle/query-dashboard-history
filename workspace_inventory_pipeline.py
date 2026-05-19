@@ -431,9 +431,9 @@ def warehouse_current():
 #   - Per hour, attribute warehouse cost across statements by share of work_ms.
 # Sources: system.billing.usage, system.billing.list_prices, system.query.history.
 QUERY_COST_TABLE = "query_cost_attribution"
-DASHBOARD_COST_TABLE = "lakeview_dashboard_cost_l30d"
-GENIE_COST_TABLE = "genie_space_cost_l30d"
-WAREHOUSE_COST_TABLE = "warehouse_cost_l30d"
+DASHBOARD_COST_TABLE = "lakeview_dashboard_cost"
+GENIE_COST_TABLE = "genie_space_cost"
+WAREHOUSE_COST_TABLE = "warehouse_cost"
 
 
 @dp.materialized_view(
@@ -575,7 +575,7 @@ def query_cost_attribution():
     name=DASHBOARD_COST_TABLE,
     comment="Per-dashboard attributed cost rollup over the cost window.",
 )
-def lakeview_dashboard_cost_l30d():
+def lakeview_dashboard_cost():
     return spark.sql(
         f"""
         SELECT
@@ -600,7 +600,7 @@ def lakeview_dashboard_cost_l30d():
     name=GENIE_COST_TABLE,
     comment="Per-Genie-space attributed cost rollup over the cost window.",
 )
-def genie_space_cost_l30d():
+def genie_space_cost():
     return spark.sql(
         f"""
         SELECT
@@ -626,7 +626,7 @@ def genie_space_cost_l30d():
     name=WAREHOUSE_COST_TABLE,
     comment="Per-warehouse attributed cost rollup over the cost window.",
 )
-def warehouse_cost_l30d():
+def warehouse_cost():
     return spark.sql(
         f"""
         SELECT

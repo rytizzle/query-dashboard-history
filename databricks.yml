@@ -81,6 +81,9 @@ resources:
         "genie.source.output_batch_size": "64"
         "warehouse.source.warehouse_limit": ${var.source_warehouse_limit}
         "warehouse.source.output_batch_size": "64"
-        # Query-level cost attribution
-        "cost.window_days": "30"
+        # Query-level cost attribution.
+        # Bounded above by system.query.history retention (default 90 days in
+        # UC; up to 365 with extended retention). Window is intentionally wide
+        # so the rollup tables include as much history as the source has.
+        "cost.window_days": "365"
         "cost.discount_pct": "0"

@@ -47,7 +47,7 @@ raw_total AS (
    AND (lp.price_end_time IS NULL OR u.usage_start_time < lp.price_end_time)
   WHERE u.billing_origin_product = 'SQL'
     AND u.usage_metadata.warehouse_id IS NOT NULL
-    AND u.usage_start_time >= current_timestamp() - INTERVAL 30 DAYS
+    AND u.usage_start_time >= current_timestamp() - INTERVAL 365 DAYS
 )
 SELECT
   mv_total_usd,
@@ -102,7 +102,7 @@ raw_hour AS (
    AND (lp.price_end_time IS NULL OR u.usage_start_time < lp.price_end_time)
   WHERE billing_origin_product = 'SQL'
     AND usage_metadata.warehouse_id IS NOT NULL
-    AND usage_start_time >= current_timestamp() - INTERVAL 30 DAYS
+    AND usage_start_time >= current_timestamp() - INTERVAL 365 DAYS
   GROUP BY 1, 2, 3
 )
 SELECT count(*) AS hours_overattributed
@@ -115,7 +115,7 @@ WHERE p.hour_attributed > r.raw_hour_cost * 1.01;  -- 1% tolerance
 -- =============================================================================
 -- Smoke-test the dashboard rollup.
 SELECT dashboard_name, owner, statements, cost_usd, dbus
-FROM lakeview_dashboard_cost_l30d
+FROM lakeview_dashboard_cost
 WHERE cost_usd > 0
 ORDER BY cost_usd DESC
 LIMIT 10;
@@ -124,7 +124,7 @@ LIMIT 10;
 -- 6. Top 10 most expensive Genie spaces
 -- =============================================================================
 SELECT genie_space_title, creator_id, statements, cost_usd, unique_users
-FROM genie_space_cost_l30d
+FROM genie_space_cost
 WHERE cost_usd > 0
 ORDER BY cost_usd DESC
 LIMIT 10;

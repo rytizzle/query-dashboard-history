@@ -17,9 +17,9 @@ Plus four cost-attribution materialized views built from `system.billing.usage`,
 | Table | Grain | Purpose |
 |---|---|---|
 | `query_cost_attribution` | one row per statement | Per-statement attributed warehouse cost (USD + DBU) |
-| `lakeview_dashboard_cost_l30d` | one row per dashboard | 30-day dashboard cost rollup |
-| `genie_space_cost_l30d` | one row per Genie space | 30-day Genie space cost rollup |
-| `warehouse_cost_l30d` | one row per warehouse | 30-day warehouse cost rollup |
+| `lakeview_dashboard_cost` | one row per dashboard | Per-dashboard cost rollup over `cost.window_days` |
+| `genie_space_cost` | one row per Genie space | Per-Genie-space cost rollup over `cost.window_days` |
+| `warehouse_cost` | one row per warehouse | Per-warehouse cost rollup over `cost.window_days` |
 
 The dashboard denormalized view joins 30-day usage aggregates from `system.access.audit` and `system.query.history`.
 
@@ -35,8 +35,10 @@ Implements the algorithm from the Granular Cost Monitoring for Databricks SQL Pr
 
 Config knobs (in `databricks.yml`):
 
-- `cost.window_days` — attribution lookback in days (default `30`)
-- `cost.discount_pct` — flat discount applied to list price (default `0`; e.g. `35` for 35% off)
+- `cost.window_days` — attribution lookback in days (default `365`). Bounded above by `system.query.history` retention — default **90 days** in UC, up to **365 days** with extended retention enabled. Set the window equal to your retention. Going wider doesn't help; going narrower trims data unnecessarily.
+- `cost.discount_pct` — flat discount applied on top of the resolved price (default `0`; e.g. `35` for 35% off). Use this only if your contract is a flat discount that isn't already reflected in `system.billing.account_prices`.
+
+> **Note on history beyond 90 days:** because `system.query.history` typically retains 90 days, cost attribution past that point is unavailable from a single MV refresh — even at `window_days = 365`. If you want true multi-year per-object cost history, convert `query_cost_attribution` from a materialized view to a **streaming table** so each pipeline run appends new statements and the table persists data after the source row is purged. That's a future enhancement (one-line change to the decorator + checkpointing).
 
 **Pricing source:** the MV prefers `system.billing.account_prices` (the customer's contracted rate) and falls back to `system.billing.list_prices` (public catalog rate) only for SKU/price-window rows the account table doesn't cover. Many demo / internal accounts have an empty `account_prices` — list_prices then carries the load. `cost.discount_pct` is an optional flat percentage applied on top (use it if your contract gives a flat discount that isn't reflected in `account_prices`).
 
@@ -141,7 +143,7 @@ Rendered output lands in `genie_space/rendered/` (gitignored).
 Then deploy:
 
 1. Run the rendered `genie_space/rendered/query_history_metric_view.sql` to create the metric view.
-2. Create a Genie space and point it at the metric view plus the four cost MVs (`query_cost_attribution`, `lakeview_dashboard_cost_l30d`, `genie_space_cost_l30d`, `warehouse_cost_l30d`).
+2. Create a Genie space and point it at the metric view plus the four cost MVs (`query_cost_attribution`, `lakeview_dashboard_cost`, `genie_space_cost`, `warehouse_cost`).
 3. Import space config from `genie_space/rendered/query_history_space.json` via the Genie API (or paste values manually). The benchmarks include 10 cost-attribution test questions ("which 10 dashboards cost the most", "which user runs the most expensive queries", etc.).
 
 The DAB itself (`make deploy`) renders automatically before `databricks bundle deploy`.
